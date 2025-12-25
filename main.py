@@ -3,37 +3,53 @@ import os
 import requests
 import PyPDF2
 from dotenv import load_dotenv
+import pickle
 
-# Load local .env (optional, Streamlit Secrets will override)
+# -----------------------------
+# Load environment
+# -----------------------------
 load_dotenv()
-
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 if not OPENROUTER_API_KEY:
-    st.error("⚠️ OPENROUTER_API_KEY not found. Set it in Streamlit Secrets.")
+    st.error("⚠️ OPENROUTER_API_KEY not found. Set it in Streamlit Secrets or .env.")
     st.stop()
 
+# -----------------------------
+# App config
+# -----------------------------
 st.set_page_config(page_title="Custom AI Chatbot", layout="centered")
 st.title("🤖 Custom Chatbot")
 
-# -----------------------------
-# Admin PDF Upload (only you)
-# -----------------------------
-if "pdf_text" not in st.session_state:
-    st.session_state.pdf_text = ""
+DATA_FILE = "pdf_text.pkl"  # Persistent storage
 
-# Toggle for admin mode
-admin_mode = st.checkbox("Admin Mode (Upload PDF)")
+# -----------------------------
+# Load existing PDF text
+# -----------------------------
+if os.path.exists(DATA_FILE):
+    with open(DATA_FILE, "rb") as f:
+        pdf_text = pickle.load(f)
+else:
+    pdf_text = ""
+
+# -----------------------------
+# Admin Mode: PDF Upload
+# -----------------------------
+st.sidebar.title("Admin Controls")
+admin_mode = st.sidebar.checkbox("Admin Mode (Upload PDF)")
 
 if admin_mode:
-    uploaded_file = st.file_uploader("Upload PDF to train chatbot", type="pdf")
+    uploaded_file = st.sidebar.file_uploader("Upload PDF to train chatbot", type="pdf")
     if uploaded_file:
         reader = PyPDF2.PdfReader(uploaded_file)
         text = ""
         for page in reader.pages:
             text += page.extract_text() or ""
-        st.session_state.pdf_text = text
-        st.success("PDF uploaded successfully!")
+        pdf_text = text
+        # Save persistently
+        with open(DATA_FILE, "wb") as f:
+            pickle.dump(pdf_text, f)
+        st.sidebar.success("PDF uploaded and saved successfully!")
 
 # -----------------------------
 # Chat Interface for all users
@@ -43,7 +59,7 @@ st.subheader("Ask a question")
 question = st.text_input("Type your question here:")
 
 if question:
-    if not st.session_state.pdf_text:
+    if not pdf_text:
         st.warning("No PDF uploaded yet. Admin must upload PDF first.")
     else:
         headers = {
@@ -63,10 +79,10 @@ if question:
                 },
                 {
                     "role": "user",
-                    "content": f"{st.session_state.pdf_text}\n\nQuestion: {question}"
+                    "content": f"{pdf_text}\n\nQuestion: {question}"
                 }
             ],
-            "max_tokens": 100   # limits response length
+            "max_tokens": 100
         }
 
         with st.spinner("Thinking..."):
