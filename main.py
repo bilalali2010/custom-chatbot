@@ -1,61 +1,74 @@
-from fastapi import FastAPI, UploadFile, File, Query
-from dotenv import load_dotenv
+import streamlit as st
 import os
 import requests
 import PyPDF2
+from dotenv import load_dotenv
 
-# Load env
-load_dotenv(dotenv_path=".env")
+# Load local .env (optional, Streamlit Secrets will override)
+load_dotenv()
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 if not OPENROUTER_API_KEY:
-    raise ValueError("OPENROUTER_API_KEY not found")
+    st.error("⚠️ OPENROUTER_API_KEY not found. Set it in Streamlit Secrets.")
+    st.stop()
 
-app = FastAPI()
+st.set_page_config(page_title="Custom AI Chatbot", layout="centered")
+st.title("🤖 Custom Chatbot")
 
-pdf_text = ""  # GLOBAL STORAGE
+# -----------------------------
+# Admin PDF Upload (only you)
+# -----------------------------
+if "pdf_text" not in st.session_state:
+    st.session_state.pdf_text = ""
 
-# ------------------ Upload PDF ------------------
-@app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
-    global pdf_text
-    reader = PyPDF2.PdfReader(file.file)
-    text = ""
-    for page in reader.pages:
-        text += page.extract_text() or ""
+# Toggle for admin mode
+admin_mode = st.checkbox("Admin Mode (Upload PDF)")
 
-    pdf_text = text.strip()
+if admin_mode:
+    uploaded_file = st.file_uploader("Upload PDF to train chatbot", type="pdf")
+    if uploaded_file:
+        reader = PyPDF2.PdfReader(uploaded_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        st.session_state.pdf_text = text
+        st.success("PDF uploaded successfully!")
 
-    return {"message": "PDF uploaded successfully", "text_length": len(pdf_text)}
+# -----------------------------
+# Chat Interface for all users
+# -----------------------------
+st.subheader("Ask a question")
 
-# ------------------ Ask Question ------------------
-@app.post("/ask")
-def ask_question(question: str = Query(...)):
-    if not pdf_text:
-        return {"error": "No PDF uploaded yet"}
+question = st.text_input("Type your question here:")
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
+if question:
+    if not st.session_state.pdf_text:
+        st.warning("No PDF uploaded yet. Admin must upload PDF first.")
+    else:
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        }
 
-    payload = {
-        "model": "allenai/olmo-3.1-32b-think:free",
-        "messages": [
-            {"role": "system", "content": "Answer using the uploaded PDF only."},
-            {"role": "user", "content": f"PDF Content:\n{pdf_text}\n\nQuestion:\n{question}"}
-        ]
-    }
+        payload = {
+            "model": "allenai/olmo-3.1-32b-think:free",
+            "messages": [
+                {"role": "system", "content": "Answer using the uploaded PDF only."},
+                {"role": "user", "content": f"{st.session_state.pdf_text}\n\nQuestion: {question}"}
+            ]
+        }
 
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers=headers,
-        json=payload
-    )
-
-    data = response.json()
-
-    if "choices" not in data:
-        return {"error": data}
-
-    return {"answer": data["choices"][0]["message"]["content"]}
+        with st.spinner("Thinking..."):
+            try:
+                response = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                )
+                data = response.json()
+                answer = data["choices"][0]["message"]["content"]
+                st.markdown("### 🤖 Answer")
+                st.write(answer)
+            except Exception as e:
+                st.error(f"Error calling OpenRouter API: {e}")
