@@ -54,9 +54,19 @@ if question:
         payload = {
             "model": "allenai/olmo-3.1-32b-think:free",
             "messages": [
-                {"role": "system", "content": "Answer using the uploaded PDF only."},
-                {"role": "user", "content": f"{st.session_state.pdf_text}\n\nQuestion: {question}"}
-            ]
+                {
+                    "role": "system",
+                    "content": (
+                        "Answer concisely in 2–3 sentences using only the uploaded PDF. "
+                        "If the question is about personal introduction, answer in first person."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"{st.session_state.pdf_text}\n\nQuestion: {question}"
+                }
+            ],
+            "max_tokens": 100   # limits response length
         }
 
         with st.spinner("Thinking..."):
