@@ -33,12 +33,19 @@ else:
     pdf_text = ""
 
 # -----------------------------
-# Admin Mode: PDF Upload
+# Admin Login (Password Protected)
 # -----------------------------
-st.sidebar.title("Admin Controls")
-admin_mode = st.sidebar.checkbox("Admin Mode (Upload PDF)")
+st.sidebar.title("Admin Login")
+password_input = st.sidebar.text_input("Enter admin password", type="password")
 
-if admin_mode:
+ADMIN_PASSWORD = "mysecret123"  # Change this to your secure password
+is_admin = password_input == ADMIN_PASSWORD
+
+# -----------------------------
+# Admin PDF Upload
+# -----------------------------
+if is_admin:
+    st.sidebar.subheader("Admin Mode - Upload PDF")
     uploaded_file = st.sidebar.file_uploader("Upload PDF to train chatbot", type="pdf")
     if uploaded_file:
         reader = PyPDF2.PdfReader(uploaded_file)
@@ -50,6 +57,8 @@ if admin_mode:
         with open(DATA_FILE, "wb") as f:
             pickle.dump(pdf_text, f)
         st.sidebar.success("PDF uploaded and saved successfully!")
+elif password_input:
+    st.sidebar.warning("❌ Incorrect password")
 
 # -----------------------------
 # Chat Interface for all users
