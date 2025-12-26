@@ -15,7 +15,7 @@ if not OPENROUTER_API_KEY:
     st.stop()
 
 st.set_page_config(page_title="Custom AI Chatbot", layout="wide")
-st.title("🤖 Custom AI Chatbot with Admin Control")
+st.title("🤖ASK ANYTHING ABOUT BILAL")
 
 # -----------------------------
 # File to store knowledge
@@ -156,3 +156,4 @@ if st.session_state.chat_history:
     for q, a in st.session_state.chat_history:
         st.markdown(f"**You:** {q}")
         st.markdown(f"**Bot:** {a}")
+
