@@ -14,7 +14,7 @@ if not OPENROUTER_API_KEY:
     st.error("⚠️ OPENROUTER_API_KEY not found. Set it in Streamlit Secrets or .env")
     st.stop()
 
-st.set_page_config(page_title="Custom AI Chatbot", layout="centered")
+st.set_page_config(page_title="Custom AI Chatbot", layout="wide")
 st.title("🤖 Custom AI Chatbot with Admin Control")
 
 # -----------------------------
@@ -34,58 +34,66 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # -----------------------------
-# Admin login and PDF upload
+# Admin sidebar
 # -----------------------------
-admin_mode = st.checkbox("🔐 Admin Mode (Login Required)")
+with st.sidebar:
+    st.header("🔐 Admin Panel")
+    admin_mode = st.checkbox("Enable Admin Mode")
 
-knowledge = ""
-if admin_mode:
-    password_input = st.text_input("Enter Admin Password", type="password")
-    if password_input != ADMIN_PASSWORD:
-        st.warning("❌ Incorrect password!")
-        st.stop()
-    else:
-        st.success("✅ Logged in as Admin")
-        st.subheader("Upload PDF(s) for training")
-        uploaded_files = st.file_uploader(
-            "Select PDF(s)", type="pdf", accept_multiple_files=True
-        )
-        if uploaded_files:
-            combined_text = ""
-            for uploaded_file in uploaded_files:
-                reader = PyPDF2.PdfReader(uploaded_file)
-                text = ""
-                for page in reader.pages:
-                    text += page.extract_text() or ""
-                combined_text += text + "\n\n"
+    if admin_mode:
+        password_input = st.text_input("Enter Admin Password", type="password")
+        if password_input != ADMIN_PASSWORD:
+            st.warning("❌ Incorrect password!")
+            st.stop()
+        else:
+            st.success("✅ Logged in as Admin")
+            st.subheader("Upload PDF(s) for training")
+            uploaded_files = st.file_uploader(
+                "Select PDF(s)", type="pdf", accept_multiple_files=True
+            )
+            if uploaded_files:
+                combined_text = ""
+                for uploaded_file in uploaded_files:
+                    reader = PyPDF2.PdfReader(uploaded_file)
+                    text = ""
+                    for page in reader.pages:
+                        text += page.extract_text() or ""
+                    combined_text += text + "\n\n"
 
-                # Save uploaded PDF to knowledge folder
-                with open(os.path.join(KNOWLEDGE_DIR, uploaded_file.name), "wb") as f:
-                    f.write(uploaded_file.getbuffer())
+                    # Save uploaded PDF to knowledge folder
+                    with open(os.path.join(KNOWLEDGE_DIR, uploaded_file.name), "wb") as f:
+                        f.write(uploaded_file.getbuffer())
 
-            # Trim combined text to safe length
-            combined_text = combined_text[:MAX_CONTEXT]
+                # Trim combined text to safe length
+                combined_text = combined_text[:MAX_CONTEXT]
 
-            # Save combined text as knowledge.txt
-            with open("knowledge.txt", "w", encoding="utf-8") as f:
-                f.write(combined_text)
+                # Save combined text as knowledge.txt
+                with open("knowledge.txt", "w", encoding="utf-8") as f:
+                    f.write(combined_text)
 
-            st.success(f"✅ Knowledge stored successfully. Characters stored: {len(combined_text)}")
+                st.success(f"✅ Knowledge stored successfully. Characters stored: {len(combined_text)}")
 
 # -----------------------------
 # Load knowledge for users
 # -----------------------------
+knowledge = ""
 if os.path.exists("knowledge.txt"):
     with open("knowledge.txt", "r", encoding="utf-8") as f:
         knowledge = f.read()
 
 # -----------------------------
-# Chat interface for users
+# Chat interface
 # -----------------------------
 st.subheader("Ask a question")
-question = st.text_input("Type your question")
 
-if question:
+col1, col2 = st.columns([4, 1])
+with col1:
+    question = st.text_input("Type your question here")
+
+with col2:
+    send = st.button("Send")
+
+if send and question:
     if not knowledge:
         st.warning("⚠️ No knowledge available yet. Admin must upload PDF first.")
     else:
@@ -123,7 +131,6 @@ if question:
                 )
                 data = response.json()
 
-                # Debug API errors
                 if "error" in data:
                     st.error("❌ Model Error:")
                     st.json(data)
