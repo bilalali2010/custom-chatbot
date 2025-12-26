@@ -14,22 +14,19 @@ if not OPENROUTER_API_KEY:
     st.error("OPENROUTER_API_KEY missing")
     st.stop()
 
-# -----------------------------
-# Page config
-# -----------------------------
 st.set_page_config(page_title="Custom AI Chatbot", layout="centered")
 st.title("🤖 AI Assistant")
 
 KNOWLEDGE_FILE = "knowledge.txt"
+MAX_CONTEXT = 4000   # VERY IMPORTANT
 
 # -----------------------------
-# ADMIN MODE (ONLY YOU)
+# ADMIN MODE
 # -----------------------------
 admin_mode = st.checkbox("🔐 Admin Mode")
 
 if admin_mode:
-    st.subheader("Upload Training PDF (Admin Only)")
-    uploaded_file = st.file_uploader("Upload PDF", type="pdf")
+    uploaded_file = st.file_uploader("Upload training PDF", type="pdf")
 
     if uploaded_file:
         reader = PyPDF2.PdfReader(uploaded_file)
@@ -38,30 +35,31 @@ if admin_mode:
         for page in reader.pages:
             text += page.extract_text() or ""
 
+        # LIMIT TEXT SIZE
+        text = text[:MAX_CONTEXT]
+
         with open(KNOWLEDGE_FILE, "w", encoding="utf-8") as f:
             f.write(text)
 
-        st.success("✅ PDF saved permanently")
+        st.success("✅ Knowledge stored successfully")
 
 # -----------------------------
 # LOAD KNOWLEDGE
 # -----------------------------
+knowledge = ""
 if os.path.exists(KNOWLEDGE_FILE):
     with open(KNOWLEDGE_FILE, "r", encoding="utf-8") as f:
         knowledge = f.read()
-else:
-    knowledge = ""
 
 # -----------------------------
-# CHAT INTERFACE (CUSTOMERS)
+# CHAT
 # -----------------------------
 st.subheader("Ask a question")
-
 question = st.text_input("Type your question")
 
 if question:
     if not knowledge:
-        st.warning("Knowledge base not set. Admin must upload PDF.")
+        st.warning("Admin must upload PDF first.")
     else:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -74,17 +72,18 @@ if question:
                 {
                     "role": "system",
                     "content": (
-                        "Answer strictly using the provided knowledge. "
-                        "Be concise (2–3 sentences). "
-                        "If question is about introduction, answer in first person."
+                        "Answer ONLY from the provided knowledge. "
+                        "If the answer is not found, say 'Information not available'. "
+                        "Reply in 2–3 sentences."
                     )
                 },
                 {
                     "role": "user",
-                    "content": f"Knowledge:\n{knowledge}\n\nQuestion: {question}"
+                    "content": f"Knowledge:\n{knowledge}\n\nQuestion:\n{question}"
                 }
             ],
-            "max_tokens": 200
+            "max_tokens": 150,
+            "temperature": 0.2
         }
 
         with st.spinner("Thinking..."):
@@ -97,10 +96,18 @@ if question:
 
             data = response.json()
 
-            answer = data.get("choices", [{}])[0].get("message", {}).get("content")
+            # DEBUG OUTPUT (TEMPORARY)
+            if "error" in data:
+                st.error(data["error"])
+                st.json(data)
+                st.stop()
 
-            if answer:
+            choices = data.get("choices", [])
+
+            if choices and "message" in choices[0]:
+                answer = choices[0]["message"].get("content")
                 st.markdown("### 🤖 Answer")
                 st.write(answer)
             else:
-                st.error("No answer returned")
+                st.error("⚠️ Model returned empty response")
+                st.json(data)  # SHOW RAW RESPONSE
