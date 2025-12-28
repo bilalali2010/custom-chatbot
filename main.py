@@ -85,7 +85,8 @@ user_input = st.chat_input("Message...")
 
 if user_input:
     # Check for admin trigger
-    if user_input.strip() == st.secrets.get("ADMIN_TRIGGER", "@admin"):
+    admin_trigger = st.secrets.get("ADMIN_TRIGGER", "@admin")
+    if user_input.strip() == admin_trigger:
         st.session_state.admin_unlocked = True
         st.session_state.messages.append(
             {"role": "assistant", "content": "🔐 Admin panel unlocked."}
@@ -145,7 +146,32 @@ if user_input:
 # Admin Panel
 # -----------------------------
 if st.session_state.admin_unlocked:
-    st.sidebar.header("🔐 Admin Analytics")
+    st.sidebar.header("🔐 Admin Panel")
+
+    # PDF / Knowledge Upload
+    st.sidebar.subheader("Upload Knowledge PDF(s)")
+    uploaded_files = st.sidebar.file_uploader(
+        "Select PDF(s) to upload",
+        type="pdf",
+        accept_multiple_files=True
+    )
+
+    if uploaded_files:
+        combined_text = ""
+        for file in uploaded_files:
+            reader = PyPDF2.PdfReader(file)
+            for page in reader.pages:
+                combined_text += page.extract_text() or ""
+            with open(os.path.join(KNOWLEDGE_DIR, file.name), "wb") as f:
+                f.write(file.getbuffer())
+
+        combined_text = combined_text[:MAX_CONTEXT]
+        with open("knowledge.txt", "w", encoding="utf-8") as f:
+            f.write(combined_text)
+        st.sidebar.success("✅ Knowledge updated successfully")
+
+    # -----------------------------
+    # Analytics
     st.sidebar.subheader("Chat Statistics")
     total_questions = len(st.session_state.chat_history)
     st.sidebar.markdown(f"**Total Questions:** {total_questions}")
