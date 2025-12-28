@@ -18,7 +18,7 @@ if not OPENROUTER_API_KEY:
 # Page Config
 # -----------------------------
 st.set_page_config(
-    page_title="ASK ANYTHING ABOUT ME",
+    page_title="ASK ANYTHING ABOUT BILAL",
     layout="centered"
 )
 
@@ -37,7 +37,7 @@ st.markdown("""
 }
 </style>
 <div class="chat-header">
-    NextGen Coaching Institute AI Assistant
+    ASK ANYTHING ABOUT BILAL
 </div>
 """, unsafe_allow_html=True)
 
@@ -57,7 +57,7 @@ if "messages" not in st.session_state:
     ]
 
 # -----------------------------
-# Admin Sidebar (SECURE)
+# Admin Sidebar
 # -----------------------------
 with st.sidebar:
     st.header("🔐 Admin Panel")
@@ -122,50 +122,46 @@ if user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    if not knowledge:
-        bot_reply = "⚠️ Knowledge not available yet."
-    else:
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json"
-        }
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json"
+    }
 
-        payload = {
-            "model": "nvidia/nemotron-3-nano-30b-a3b:free",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an AI assistant that answers ONLY based on the provided document. "
-                        "If the answer is not found, say: Information not available."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": f"Document:\n{knowledge}\n\nQuestion:\n{user_input}"
-                }
-            ],
-            "max_output_tokens": 200,
-            "temperature": 0.2
-        }
+    payload = {
+        "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful AI assistant. "
+                    "Answer clearly, professionally, and concisely."
+                )
+            },
+            {
+                "role": "user",
+                "content": f"{knowledge}\n\n{user_input}"
+            }
+        ],
+        "max_output_tokens": 200,
+        "temperature": 0.4
+    }
 
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                data = response.json()
-                bot_reply = (
-                    data["choices"][0]["message"]["content"]
-                    if "choices" in data else
-                    "Error generating response"
-                )
-                st.markdown(bot_reply)
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            data = response.json()
+            bot_reply = (
+                data["choices"][0]["message"]["content"]
+                if "choices" in data else
+                "Error generating response"
+            )
+            st.markdown(bot_reply)
 
     st.session_state.messages.append(
         {"role": "assistant", "content": bot_reply}
     )
-
