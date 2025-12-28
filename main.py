@@ -100,42 +100,49 @@ if user_input:
             st.markdown(user_input)
 
         # Call AI
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        if not knowledge:
+            bot_reply = "⚠️ No knowledge uploaded yet. Admin must upload PDFs first."
+        else:
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            }
 
-        payload = {
-            "model": "nvidia/nemotron-3-nano-30b-a3b:free",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a helpful AI assistant. Give VERY SHORT, clear answers (1-2 sentences)."
-                },
-                {
-                    "role": "user",
-                    "content": f"{knowledge}\n\n{user_input}"
-                }
-            ],
-            "max_output_tokens": 80,
-            "temperature": 0.2
-        }
+            payload = {
+                "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a helpful AI assistant. "
+                            "Answer SHORT (1-2 sentences) and ONLY using the content provided in the document. "
+                            "If the answer is not in the document, reply exactly: 'Information not available.'"
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Document:\n{knowledge}\n\nQuestion:\n{user_input}"
+                    }
+                ],
+                "max_output_tokens": 80,
+                "temperature": 0.2
+            }
 
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                data = response.json()
-                bot_reply = (
-                    data["choices"][0]["message"]["content"]
-                    if "choices" in data else
-                    "Error generating response"
-                )
-                st.markdown(bot_reply)
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    response = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=30
+                    )
+                    data = response.json()
+                    bot_reply = (
+                        data["choices"][0]["message"]["content"]
+                        if "choices" in data else
+                        "Error generating response"
+                    )
+                    st.markdown(bot_reply)
 
         st.session_state.messages.append({"role": "assistant", "content": bot_reply})
 
