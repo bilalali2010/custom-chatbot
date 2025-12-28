@@ -133,8 +133,9 @@ if user_input:
             {
                 "role": "system",
                 "content": (
-                    "You are a helpful AI assistant. "
-                    "Answer clearly, professionally, and concisely."
+                    "You are an AI assistant. "
+                    "Give VERY SHORT, clear answers. "
+                    "Limit responses to 1–2 sentences only."
                 )
             },
             {
@@ -142,8 +143,8 @@ if user_input:
                 "content": f"{knowledge}\n\n{user_input}"
             }
         ],
-        "max_output_tokens": 200,
-        "temperature": 0.4
+        "max_output_tokens": 80,
+        "temperature": 0.2
     }
 
     with st.chat_message("assistant"):
