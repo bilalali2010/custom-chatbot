@@ -11,70 +11,91 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 if not OPENROUTER_API_KEY:
-    st.error("⚠️ OPENROUTER_API_KEY not found. Set it in Streamlit Secrets or .env")
+    st.error("⚠️ OPENROUTER_API_KEY not found.")
     st.stop()
 
-st.set_page_config(page_title="Custom AI Chatbot", layout="wide")
-st.title("🤖ASK ANYTHING ABOUT BILAL")
+# -----------------------------
+# Page Config
+# -----------------------------
+st.set_page_config(
+    page_title="NextGen Coaching Institute AI Assistant",
+    layout="centered"
+)
 
 # -----------------------------
-# File to store knowledge
+# Custom Header
+# -----------------------------
+st.markdown("""
+<style>
+.chat-header {
+    background: linear-gradient(90deg, #4285f4, #5a95f5);
+    padding: 14px;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+}
+</style>
+<div class="chat-header">
+    NextGen Coaching Institute AI Assistant
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------------
+# Knowledge Directory
 # -----------------------------
 KNOWLEDGE_DIR = "knowledge_pdfs"
-if not os.path.exists(KNOWLEDGE_DIR):
-    os.makedirs(KNOWLEDGE_DIR)
-
-MAX_CONTEXT = 4500  # safe limit for model input
-ADMIN_PASSWORD = "20100905"  # admin password
+os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
+MAX_CONTEXT = 4500
 
 # -----------------------------
-# Initialize session state
+# Session State
 # -----------------------------
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Hi! What can I help you with?"}
+    ]
 
 # -----------------------------
-# Admin sidebar
+# Admin Sidebar (SECURE)
 # -----------------------------
 with st.sidebar:
     st.header("🔐 Admin Panel")
     admin_mode = st.checkbox("Enable Admin Mode")
 
     if admin_mode:
-        password_input = st.text_input("Enter Admin Password", type="password")
-        if password_input != ADMIN_PASSWORD:
-            st.warning("❌ Incorrect password!")
+        password_input = st.text_input("Admin Password", type="password")
+
+        if password_input != st.secrets["ADMIN_PASSWORD"]:
+            st.warning("❌ Incorrect password")
             st.stop()
-        else:
-            st.success("✅ Logged in as Admin")
-            st.subheader("Upload PDF(s) for training")
-            uploaded_files = st.file_uploader(
-                "Select PDF(s)", type="pdf", accept_multiple_files=True
-            )
-            if uploaded_files:
-                combined_text = ""
-                for uploaded_file in uploaded_files:
-                    reader = PyPDF2.PdfReader(uploaded_file)
-                    text = ""
-                    for page in reader.pages:
-                        text += page.extract_text() or ""
-                    combined_text += text + "\n\n"
 
-                    # Save uploaded PDF to knowledge folder
-                    with open(os.path.join(KNOWLEDGE_DIR, uploaded_file.name), "wb") as f:
-                        f.write(uploaded_file.getbuffer())
+        st.success("✅ Admin access granted")
 
-                # Trim combined text to safe length
-                combined_text = combined_text[:MAX_CONTEXT]
+        uploaded_files = st.file_uploader(
+            "Upload PDF(s)",
+            type="pdf",
+            accept_multiple_files=True
+        )
 
-                # Save combined text as knowledge.txt
-                with open("knowledge.txt", "w", encoding="utf-8") as f:
-                    f.write(combined_text)
+        if uploaded_files:
+            combined_text = ""
+            for file in uploaded_files:
+                reader = PyPDF2.PdfReader(file)
+                for page in reader.pages:
+                    combined_text += page.extract_text() or ""
 
-                st.success(f"✅ Knowledge stored successfully. Characters stored: {len(combined_text)}")
+                with open(os.path.join(KNOWLEDGE_DIR, file.name), "wb") as f:
+                    f.write(file.getbuffer())
+
+            combined_text = combined_text[:MAX_CONTEXT]
+            with open("knowledge.txt", "w", encoding="utf-8") as f:
+                f.write(combined_text)
+
+            st.success("✅ Knowledge updated successfully")
 
 # -----------------------------
-# Load knowledge for users
+# Load Knowledge
 # -----------------------------
 knowledge = ""
 if os.path.exists("knowledge.txt"):
@@ -82,20 +103,27 @@ if os.path.exists("knowledge.txt"):
         knowledge = f.read()
 
 # -----------------------------
-# Chat interface
+# Display Chat
 # -----------------------------
-st.subheader("Ask a question")
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-col1, col2 = st.columns([4, 1])
-with col1:
-    question = st.text_input("Type your question here")
+# -----------------------------
+# Chat Input
+# -----------------------------
+user_input = st.chat_input("Message...")
 
-with col2:
-    send = st.button("Send")
+if user_input:
+    st.session_state.messages.append(
+        {"role": "user", "content": user_input}
+    )
 
-if send and question:
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
     if not knowledge:
-        st.warning("⚠️ No knowledge available yet. Admin must upload PDF first.")
+        bot_reply = "⚠️ Knowledge not available yet."
     else:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -108,21 +136,21 @@ if send and question:
                 {
                     "role": "system",
                     "content": (
-                        "You are an AI assistant that answers questions ONLY based on the provided document. "
-                        "Keep answers short and accurate. If answer not in document, respond: 'Information not available.'"
+                        "You are an AI assistant that answers ONLY based on the provided document. "
+                        "If the answer is not found, say: Information not available."
                     )
                 },
                 {
                     "role": "user",
-                    "content": f"Document:\n{knowledge}\n\nQuestion:\n{question}"
+                    "content": f"Document:\n{knowledge}\n\nQuestion:\n{user_input}"
                 }
             ],
             "max_output_tokens": 200,
             "temperature": 0.2
         }
 
-        with st.spinner("🤖 Thinking..."):
-            try:
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
                 response = requests.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers=headers,
@@ -130,30 +158,13 @@ if send and question:
                     timeout=30
                 )
                 data = response.json()
+                bot_reply = (
+                    data["choices"][0]["message"]["content"]
+                    if "choices" in data else
+                    "Error generating response"
+                )
+                st.markdown(bot_reply)
 
-                if "error" in data:
-                    st.error("❌ Model Error:")
-                    st.json(data)
-                else:
-                    choices = data.get("choices", [])
-                    if choices and "message" in choices[0]:
-                        answer = choices[0]["message"].get("content")
-                        st.session_state.chat_history.append((question, answer))
-                        st.markdown("### 🤖 Answer")
-                        st.write(answer)
-                    else:
-                        st.error("⚠️ Empty response from model")
-                        st.json(data)
-            except Exception as err:
-                st.error(f"Error calling the API: {err}")
-
-# -----------------------------
-# Display chat history
-# -----------------------------
-if st.session_state.chat_history:
-    st.markdown("---")
-    st.subheader("Chat History")
-    for q, a in st.session_state.chat_history:
-        st.markdown(f"**You:** {q}")
-        st.markdown(f"**Bot:** {a}")
-
+    st.session_state.messages.append(
+        {"role": "assistant", "content": bot_reply}
+    )
