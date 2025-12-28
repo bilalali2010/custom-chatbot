@@ -18,7 +18,7 @@ if not OPENROUTER_API_KEY:
 # Page Config
 # -----------------------------
 st.set_page_config(
-    page_title="NextGen Coaching Institute AI Assistant",
+    page_title="ASK ANYTHING ABOUT ME",
     layout="centered"
 )
 
@@ -168,3 +168,4 @@ if user_input:
     st.session_state.messages.append(
         {"role": "assistant", "content": bot_reply}
     )
+
