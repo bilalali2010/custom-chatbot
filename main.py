@@ -147,7 +147,7 @@ if "current_booking" not in st.session_state:
 # Add greeting once at the very start
 if len(st.session_state.messages) == 0:
     st.session_state.messages.append(
-        {"role": "assistant", "content": "Hi! I’m Chat with Bilal 🤖. I can help you with IGCSE/A Levels info and booking appointments."}
+        {"role": "assistant", "content": "Hi! I’m Chat with Bilal 🤖. I can help you with info and booking appointments."}
     )
 
 # -----------------------------
@@ -341,3 +341,4 @@ with st.container():
 # RENDER CHAT
 # -----------------------------
 render_chat()
+
